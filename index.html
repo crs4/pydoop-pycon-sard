@@ -1,8 +1,10 @@
 <html>
 
   <head>
+    <meta charset="utf-8">
     <link rel="stylesheet" href="css/reveal.css">
     <link rel="stylesheet" href="css/theme/black.css">
+    <link rel="stylesheet" href="lib/css/zenburn.css">
   </head>
 
   <body>
@@ -65,15 +67,79 @@
 	      SVG not supported
 	    </object>
 	  </section>
+	  <section>
+	    <h3>Word count &ndash; pseudocode</h3>
+	    <pre><code class="hljs" data-trim>
+void map(Object key, String value) {
+  for (String word: tokenize(value)) {
+    emit(word, 1);
+  }
+}
+
+void reduce(String key, Iterator values) {
+  int count = 0;
+  for (int v: values) {
+    count += v;
+  }
+  emit(key, count);
+}
+	    </code></pre>
+	  </section>
+	  <section>
+	    <h3>Word count &ndash; Java</h3>
+	    <pre><code class="hljs" data-trim>
+public static class TokenizerMapper
+    extends Mapper&lt;Object, Text, Text, IntWritable&gt; {
+  private final static IntWritable one = new IntWritable(1);
+  private Text word = new Text();
+  public void map(Object k, Text v, Context context)
+      throws IOException, InterruptedException {
+    StringTokenizer itr = new StringTokenizer(v.toString());
+    while (itr.hasMoreTokens()) {
+      word.set(itr.nextToken());
+      context.write(word, one);
+    }
+  }
+}
+
+public static class IntSumReducer
+     extends Reducer&lt;Text, IntWritable, Text, IntWritable&gt; {
+  private IntWritable result = new IntWritable();
+  public void reduce(Text k, Iterable&lt;IntWritable&gt; values,
+      Context context)
+      throws IOException, InterruptedException {
+    int sum = 0;
+    for (IntWritable v: values) {
+      sum += v.get();
+    }
+    result.set(sum);
+    context.write(k, result);
+  }
+}
+	    </code></pre>
+	  </section>
 	</section>
 
 	<section>
 	  <section>
 	    <h3>Pydoop</h3>
-	    <ul>
-	      <li>Python bindings for Hadoop</li>
-	      <li>MapReduce & HDFS API</li>
-	    </ul>
+	    <p>
+	      <ul>
+		<li>Python bindings for Hadoop</li>
+		<li>MapReduce & HDFS API</li>
+	      </ul>
+	    </p>
+	    <h4>Goal:</h4>
+	    <pre><code class="hljs" data-trim>
+class Mapper(api.Mapper):
+    def map(self, context):
+        for w in context.value.split():
+            context.emit(w, 1)
+
+class Reducer(api.Reducer):
+    def reduce(self, context):
+        context.emit(context.key, sum(context.values))
+	    </code></pre>
 	  </section>
 	  <section>
 	    (TBD) Pydoop...
@@ -82,9 +148,17 @@
 
       </div>
     </div>
+    <script src="lib/js/head.min.js"></script>
     <script src="js/reveal.js"></script>
     <script>
-      Reveal.initialize({history: true});
+      Reveal.initialize({
+        history: true,
+        dependencies: [
+          {src: 'plugin/highlight/highlight.js',
+           async: true,
+           callback: function() { hljs.initHighlightingOnLoad(); }}
+        ]
+      });
     </script>
   </body>
 

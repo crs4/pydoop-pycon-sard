@@ -2,22 +2,86 @@
 
   <head>
     <link rel="stylesheet" href="css/reveal.css">
-    <link rel="stylesheet" href="css/theme/crs4_black.css">
+    <link rel="stylesheet" href="css/theme/black.css">
   </head>
 
   <body>
     <div class="reveal">
       <div class="slides">
-	<section>
-	  <h3>Integrazione di Python con altri linguaggi: il caso di Pydoop</h3>
+
+	<section data-background="img/crs4.png" data-background-size="331px" data-background-position="center 98%">
+	  <h3>Integrating Python with other languages: the Pydoop case</h3>
 	  <p><small>Simone Leo &ndash; CRS4</small></p>
 	</section>
-	<section>Slide 2</section>
+
+	<section>
+	  <h3>These slides</h3>
+	  <ul>
+	    <li>(browse) <a href="https://crs4.github.io/pydoop-pycon-sard" target="_blank">crs4.github.io/pydoop-pycon-sard</a></li>
+	    <li>(src) <a href="https://github.com/crs4/pydoop-pycon-sard" target="_blank">github.com/crs4/pydoop-pycon-sard</a></li>
+	  </ul>
+	</section>
+
+	<section id="fragments">
+	  <div style="text-align:left">
+	    <dl>
+	      <dt>Q.</dt>
+	      <dd>What is <a href="https://crs4.github.io/pydoop" target="_blank">Pydoop</a>?</dd>
+	    </dl>
+	  </div>
+	  <div class="fragment" style="text-align:left">
+	    <dl>
+	      <dt>A.</dt>
+	      <dd>A set of Python bindings for Hadoop</dd>
+	    </dl>
+	  </div>
+	  <div class="fragment" style="text-align:left">
+	    <dl>
+	      <dt>Q.</dt>
+	      <dd>OK, but what is <a href="http://hadoop.apache.org/" target="_blank">Hadoop</a>?</dd>
+	    </dl>
+	  </div>
+	  <div class="fragment" style="text-align:left">
+	    <dl>
+	      <dt>A.</dt>
+	      <dd>A Java distributed computing (DC) framework</dd>
+	    </dl>
+	  </div>
+	</section>
+
+	<section>
+	  <section>
+	    <h3>Hadoop</h3>
+	    <ul>
+	      <li>DC framework focused on data-intensive jobs</li>
+	      <li>Simple programming model (MapReduce)</li>
+	      <li>Backed up by a distributed filesystem (HDFS)</li>
+	      <li>Written in Java</li>
+	    </ul>
+	  </section>
+	  <section>
+	    (TBD) Hadoop...
+	  </section>
+	</section>
+
+	<section>
+	  <section>
+	    <h3>Pydoop</h3>
+	    <ul>
+	      <li>Python bindings for Hadoop</li>
+	      <li>MapReduce & HDFS API</li>
+	    </ul>
+	  </section>
+	  <section>
+	    (TBD) Pydoop...
+	  </section>
+	</section>
+
       </div>
     </div>
     <script src="js/reveal.js"></script>
     <script>
-      Reveal.initialize();
+      Reveal.initialize({history: true});
     </script>
   </body>
 

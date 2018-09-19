@@ -24,7 +24,7 @@
 	  </ul>
 	</section>
 
-	<section id="fragments">
+	<section>
 	  <div style="text-align:left">
 	    <dl>
 	      <dt>Q.</dt>
@@ -56,9 +56,9 @@
 	    <h3>Hadoop</h3>
 	    <ul>
 	      <li>DC framework focused on data-intensive jobs</li>
-	      <li>Simple programming model (MapReduce)</li>
-	      <li>Backed up by a distributed filesystem (HDFS)</li>
-	      <li>Written in Java</li>
+	      <li class="fragment">Simple programming model (MapReduce)</li>
+	      <li class="fragment">Backed up by a distributed filesystem (HDFS)</li>
+	      <li class="fragment">Written in Java</li>
 	    </ul>
 	  </section>
 	  <section>
@@ -87,7 +87,7 @@ void reduce(String key, Iterator values) {
 	  </section>
 	  <section>
 	    <h3>Word count &ndash; Java</h3>
-	    <pre><code class="hljs" data-trim>
+	    <pre><code class="java" data-trim>
 public static class TokenizerMapper
     extends Mapper&lt;Object, Text, Text, IntWritable&gt; {
   private final static IntWritable one = new IntWritable(1);
@@ -129,7 +129,7 @@ public static class IntSumReducer
 	      <li>Started 10 years ago with the following goal</li>
 	    </ul>
 	  </p>
-	  <pre><code class="hljs" data-trim>
+	  <pre><code class="python" data-trim>
 class Mapper(api.Mapper):
     def map(self, context):
         for w in context.value.split():
@@ -142,7 +142,7 @@ class Reducer(api.Reducer):
 	</section>
 
 	<section>  <!-- START STREAMING & CO. -->
-	  <section id="fragments">
+	  <section>
 	    <h3>Already available in Hadoop</h3>
 	    <p style="text-align:left"><span style="font-weight: bold">MapReduce:</span></p>
 	    <div style="text-align:left">
@@ -169,13 +169,13 @@ class Reducer(api.Reducer):
 	  <section>
 	    <h3>Hadoop Streaming</h3>
 	    <p style="text-align:left"><small><code>mapper.py</code></small></p>
-	    <pre><code class="hljs" data-trim>
+	    <pre><code class="python" data-trim>
 for line in sys.stdin:
     for word in line.split():
         sys.stdout.write("%s\t1\n" % word)
 	    </code></pre>
 	    <p style="text-align:left"><small><code>reducer.py</code></small></p>
-	    <pre><code class="hljs" data-trim>
+	    <pre><code class="python" data-trim>
 out_k, out_v = None, 0
 for line in sys.stdin:
     k, v = line.split("\t", 1)
@@ -191,7 +191,7 @@ sys.stdout.write("%s\t%d\n" % (out_k, out_v))
 	  </section>
 	  <section>
 	    <h3>Hadoop Streaming &ndash; Fancy Reducer</h3>
-	    <pre><code class="hljs" data-trim>
+	    <pre><code class="python" data-trim>
 #!/usr/bin/env python
 
 import sys
@@ -211,9 +211,188 @@ for k, stream in groupby(istream(), itemgetter(0)):
 	  </section>
 	  <section>
 	    <h3>Hadoop Pipes</h3>
-	    <p>TBD</p>
+	    <object type="image/svg+xml" data="img/pipes.svg">
+	      SVG not supported
+	    </object>
 	  </section>
 	</section>  <!-- END STREAMING & CO. -->
+
+	<section>  <!-- START PYDOOP INTERNALS -->
+	  <section>
+	    <h3>Python Pipes Task Runner</h3>
+	    <p style="text-align:left"><span style="font-weight: bold">Options, options &hellip;</span></p>
+	    <div style="text-align:left">
+	      <ul class="fragment">
+		<li>Wrap the whole C++ client code</li>
+		<ul><li>First Pydoop version (via <a href="https://www.boost.org/doc/libs/1_68_0/libs/python/doc/html/index.html" target="_blank">boost.python</a>)</li></ul>
+	      </ul>
+	      <ul class="fragment">
+		<li>Write everything in pure Python</li>
+		<ul><li>Second thing we tried, too slow</li></ul>
+	      </ul>
+	      <ul class="fragment">
+		<li>Extension module only for performance-critical stuff</li>
+		<ul><li>Current approach, via the <a href="https://docs.python.org/3/c-api/index.html" target="_blank">C API</a></li></ul>
+	      </ul>
+	    </div>
+	  </section>
+	  <section>
+	    <h3>Main job: read/write Java types</h3>
+	    <pre><code class="java" data-trim>
+public static void writeVLong(DataOutput stream, long i) {
+  if (i &gt;= -112 && i &lt;= 127) {
+    stream.writeByte((byte)i);
+    return;
+  }
+  int len = -112;
+  if (i &lt; 0) {
+    i ^= -1L;
+    len = -120;
+  }
+  long tmp = i;
+  while (tmp != 0) {
+    tmp = tmp &gt;&gt; 8;
+    len--;
+  }
+  stream.writeByte((byte)len);
+  len = (len &lt; -120) ? -(len + 120) : -(len + 112);
+  for (int idx = len; idx != 0; idx--) {
+    int shiftbits = (idx - 1) * 8;
+    long mask = 0xFFL &lt;&lt; shiftbits;
+    stream.writeByte((byte)((i & mask) &gt;&gt; shiftbits));
+  }
+}
+	    </code></pre>
+	    <p><small><code>org.apache.hadoop.io.WritableUtils</code></small></p>
+	  </section>
+	  <section>
+	    <h3>Read/write Java types &ndash; C++</h3>
+	    <pre><code class="c++" data-trim>
+int64_t deserializeLong(InStream& stream) {
+  int8_t b;
+  stream.read(&b, 1);
+  if (b >= -112) {
+    return b;
+  }
+  bool negative;
+  int len;
+  if (b < -120) {
+    negative = true;
+    len = -120 - b;
+  } else {
+    negative = false;
+    len = -112 - b;
+  }
+  uint8_t barr[len];
+  stream.read(barr, len);
+  int64_t t = 0;
+  for (int idx = 0; idx < len; idx++) {
+    t = t << 8;
+    t |= (barr[idx] & 0xFF);
+  }
+  if (negative) {
+    t ^= -1ll;
+  }
+  return t;
+}
+	    </code></pre>
+	    <p><small><code>HadoopUtils</code></small></p>
+	  </section>
+	  <section>
+	    <h3>Read/write Java types: Python</h3>
+	    <pre><code class="c" data-trim>
+static PyObject *
+FileInStream_readVLong(FileInStreamObj *self) {
+  int64_t rval;
+  PyThreadState *state = PyEval_SaveThread();
+  try {
+    rval = HadoopUtils::deserializeLong(*self->stream);
+  } catch (HadoopUtils::Error e) {
+    PyEval_RestoreThread(state);
+    PyErr_SetString(PyExc_IOError, e.getMessage().c_str());
+    return NULL;
+  }
+  PyEval_RestoreThread(state);
+  return Py_BuildValue("L", rval);
+}
+	    </code></pre>
+	  </section>
+	  <section>
+	    <h3>Task runner</h3>
+	    <pre><code class="python" data-trim>
+import pydoop.sercore as sercore
+
+class BinaryProtocol(object):
+
+    def __init__(self, istream, ...):
+        self.istream = istream
+
+    def __next__(self):
+        cmd = self.stream.read_vlong()
+        if cmd == AUTHENTICATION_REQ:
+            digest = self.stream.read_bytes()
+            challenge = self.stream.read_bytes()
+            self.verify_digest(digest, challenge)
+    elif cmd == START: ...
+	    </code></pre>
+	  </section>
+	  <section>
+	    <h3>HDFS</h3>
+	    <pre><code class="C" data-trim>
+tOffset hdfsGetDefaultBlockSize(hdfsFS fs) {
+  jobject jFS = (jobject)fs;
+  jvalue jVal;
+  jthrowable jthr;
+  JNIEnv* env = getJNIEnv();
+  if (env == NULL) {
+    errno = EINTERNAL;
+    return -1;
+  }
+  jthr = invokeMethod(env, &jVal, INSTANCE, jFS, HADOOP_FS,
+                      "getDefaultBlockSize", "()J");
+  if (jthr) ... /* handle error */
+  return jVal.j;
+}
+	    </code></pre>
+	    <pre><code class="C" data-trim>
+PyObject* FsClass_get_default_block_size(FsInfo* self) {
+  tOffset size = hdfsGetDefaultBlockSize(self->_fs);
+  return PyLong_FromSsize_t(size);
+}
+	    </code></pre>
+	  </section>
+	</section>  <!-- END PYDOOP INTERNALS -->
+
+	<section>
+	  <div style="text-align:left">
+	    <dl>
+	      <dt>Q.</dt>
+	      <dd>Can I wrap Java code without going through JNI?</dd>
+	    </dl>
+	  </div>
+	  <div class="fragment" style="text-align:left">
+	    <dl>
+	      <dt>A.</dt>
+	      <dd>Yes, we tried <a href="http://jpype.sourceforge.net" target="_blank">JPype</a> at some point. Too slow.</dd>
+	    </dl>
+	  </div>
+	  <div class="fragment" style="text-align:left">
+	    <dl>
+	      <dt>Q.</dt>
+	      <dd>Any other options for integrating Python with X?</dd>
+	    </dl>
+	  </div>
+	  <div class="fragment" style="text-align:left">
+	    <dl>
+	      <dt>A.</dt>
+	      <dd>Check out <a href="https://wiki.python.org/moin/IntegratingPythonWithOtherLanguages" target="_blank">IntegratingPythonWithOtherLanguages</a> at <a href="https://wiki.python.org" target="_blank">wiki.python.org</a></dd>
+	    </dl>
+	  </div>
+	</section>
+
+	<section>
+	  <h3>Thank you</h3>
+	</section>
 
       </div>
     </div>

@@ -51,7 +51,7 @@
 	  </div>
 	</section>
 
-	<section>
+	<section>  <!-- START HADOOP -->
 	  <section>
 	    <h3>Hadoop</h3>
 	    <ul>
@@ -118,19 +118,18 @@ public static class IntSumReducer
 }
 	    </code></pre>
 	  </section>
-	</section>
+	</section>  <!-- END HADOOP -->
 
 	<section>
-	  <section>
-	    <h3>Pydoop</h3>
-	    <p>
-	      <ul>
-		<li>Python bindings for Hadoop</li>
-		<li>MapReduce & HDFS API</li>
-	      </ul>
-	    </p>
-	    <h4>Goal:</h4>
-	    <pre><code class="hljs" data-trim>
+	  <h3>Pydoop</h3>
+	  <p>
+	    <ul>
+	      <li>Python bindings for Hadoop</li>
+	      <li>MapReduce & HDFS API</li>
+	      <li>Started 10 years ago with the following goal</li>
+	    </ul>
+	  </p>
+	  <pre><code class="hljs" data-trim>
 class Mapper(api.Mapper):
     def map(self, context):
         for w in context.value.split():
@@ -139,12 +138,82 @@ class Mapper(api.Mapper):
 class Reducer(api.Reducer):
     def reduce(self, context):
         context.emit(context.key, sum(context.values))
+	  </code></pre>
+	</section>
+
+	<section>  <!-- START STREAMING & CO. -->
+	  <section id="fragments">
+	    <h3>Already available in Hadoop</h3>
+	    <p style="text-align:left"><span style="font-weight: bold">MapReduce:</span></p>
+	    <div style="text-align:left">
+	      <ul class="fragment">
+		<li><a href="https://hadoop.apache.org/docs/r3.1.1/hadoop-streaming/HadoopStreaming.html" target="_blank">Hadoop Streaming</a></li>
+		<ul>
+		  <li>any language (write executable scripts)</li>
+		  <li>exchange k/v pairs via stdin/stdout</li>
+		</ul>
+	      </ul>
+	    </div>
+	    <div style="text-align:left">
+	      <ul class="fragment">
+		<li><a href="https://hadoop.apache.org/docs/r1.2.1/api/org/apache/hadoop/mapred/pipes/package-summary.html" target="_blank">Hadoop Pipes</a> (no howto in current version!)</li>
+		<ul>
+		  <li>any language (a C++ client is included)</li>
+		  <li>communicate with framework via socket</li>
+		</ul>
+	      </ul>
+	    </div>
+	    <p class="fragment" style="text-align:left"><span style="font-weight: bold">HDFS:</span> <a href="https://hadoop.apache.org/docs/r3.1.1/hadoop-project-dist/hadoop-hdfs/LibHdfs.html" target="_blank">libhdfs</a> (C, via JNI)</p>
+	  </section>
+	  <!-- Add a diagram showing the streams you get from the framework? -->
+	  <section>
+	    <h3>Hadoop Streaming</h3>
+	    <p style="text-align:left"><small><code>mapper.py</code></small></p>
+	    <pre><code class="hljs" data-trim>
+for line in sys.stdin:
+    for word in line.split():
+        sys.stdout.write("%s\t1\n" % word)
+	    </code></pre>
+	    <p style="text-align:left"><small><code>reducer.py</code></small></p>
+	    <pre><code class="hljs" data-trim>
+out_k, out_v = None, 0
+for line in sys.stdin:
+    k, v = line.split("\t", 1)
+    v = int(v)
+    if k != out_k:
+        if out_k is not None:
+            sys.stdout.write("%s\t%d\n" % (out_k, out_v))
+            out_v = 0
+        out_k = k
+    out_v += v
+sys.stdout.write("%s\t%d\n" % (out_k, out_v))
 	    </code></pre>
 	  </section>
 	  <section>
-	    (TBD) Pydoop...
+	    <h3>Hadoop Streaming &ndash; Fancy Reducer</h3>
+	    <pre><code class="hljs" data-trim>
+#!/usr/bin/env python
+
+import sys
+from itertools import groupby
+from operator import itemgetter
+
+def istream():
+    for line in sys.stdin:
+        k, v = line.split("\t", 1)
+        yield k, int(v)
+
+for k, stream in groupby(istream(), itemgetter(0)):
+    v = sum(_[1] for _ in stream)
+    sys.stdout.write("%s\t%d\n" % (k, v))
+	    </code></pre>
+	    <p><a href="https://pythonhosted.org/mrjob" target="_blank">mrjob</a> is based on Hadoop Streaming</p>
 	  </section>
-	</section>
+	  <section>
+	    <h3>Hadoop Pipes</h3>
+	    <p>TBD</p>
+	  </section>
+	</section>  <!-- END STREAMING & CO. -->
 
       </div>
     </div>

@@ -333,7 +333,7 @@ class BinaryProtocol(object):
             digest = self.stream.read_bytes()
             challenge = self.stream.read_bytes()
             self.verify_digest(digest, challenge)
-    elif cmd == START: ...
+        elif cmd == START: ...
 	    </code></pre>
 	  </section>
 	  <section>
